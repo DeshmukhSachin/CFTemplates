@@ -61,41 +61,6 @@ Resources:
   JenkinsInstance:
     Description: 'Jenkins Standalone EC2 Instance running Java 8, and Jenkins.'
     Type: 'AWS::EC2::Instance'
-    Metadata:
-      'AWS::CloudFormation::Init':
-        configSets:
-          default:
-            - jenkinsConfig
-        jenkinsConfig:
-          packages:
-            yum:
-              wget: []
-              java-1.8.0-openjdk: []
-              java-1.8.0-openjdk-devel: []
-              net-tools: []
-              git: []
-              jq: []
-          commands:
-            01_jenkins_repo:
-              command: >-
-                sudo wget -O /etc/yum.repos.d/jenkins.repo \
-                https://pkg.jenkins.io/redhat-stable/jenkins.repo
-            02_yum_clean:
-              command: sudo yum upgrade -y
-            03_jenkins_key:
-              command: >-
-                sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key -y
-            04_check_jenkins_login:
-              command: sudo yum install jenkins java-1.8.0-openjdk-devel -y
-            05_set_jenkins_port:
-              command: sudo systemctl daemon-reload
-            06_set_jenkins_port:
-              command: sudo systemctl start jenkins
-          services:
-            sysvinit:
-              jenkins:
-                enabled: true
-                ensureRunning: true
     Properties:
       BlockDeviceMappings:
         - DeviceName: /dev/sdb
@@ -119,6 +84,17 @@ Resources:
       Tags:
         - Key: Name
           Value: !Ref InstanceTagName
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash -xe
+          sudo yum upgrade -y
+          sudo wget -O /etc/yum.repos.d/jenkins.repo \
+              https://pkg.jenkins.io/redhat/jenkins.repo
+          sudo rpm --import https://pkg.jenkins.io/redhat/jenkins.io.key
+          sudo yum install jenkins java-1.8.0-openjdk-devel -y
+          sudo systemctl daemon-reload -y
+          sudo systemctl start jenkins
+
   ServerSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
@@ -135,9 +111,6 @@ Resources:
           FromPort: !Ref JenkinsPort
           ToPort: !Ref JenkinsPort
           CidrIp: !Ref SSHLocation
-    Metadata:
-      'AWS::CloudFormation::Designer':
-        id: fd8c3b7a-f9d0-4cd2-976f-bcf96c6ac180
 Outputs:
   TemplateID:
     Description: Jenkins Single Server Template
